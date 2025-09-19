@@ -8,6 +8,7 @@ import subprocess
 import threading
 import os
 import time
+from .firmware_upload_server import FirmwareUploadServer
 
 
 class FirmwareFlashNode(Node):
@@ -37,9 +38,23 @@ class FirmwareFlashNode(Node):
         self.package_share_dir = get_package_share_directory('dexi_tools')
         self.scripts_dir = os.path.join(self.package_share_dir, 'scripts')
 
+        # Initialize HTTP upload server
+        self.declare_parameter('upload_port', 8080)
+        self.declare_parameter('upload_dir', '/shared/firmware_uploads')
+
+        upload_port = self.get_parameter('upload_port').get_parameter_value().integer_value
+        upload_dir = self.get_parameter('upload_dir').get_parameter_value().string_value
+
+        self.upload_server = FirmwareUploadServer(port=upload_port, upload_dir=upload_dir)
+        if self.upload_server.start():
+            self.get_logger().info(f'HTTP upload server started on port {upload_port}')
+        else:
+            self.get_logger().error('Failed to start HTTP upload server')
+
         self.get_logger().info('Firmware flash node started')
         self.get_logger().info(f'Scripts directory: {self.scripts_dir}')
         self.get_logger().info(f'Simulation mode: {self.simulation_mode}')
+        self.get_logger().info(f'Upload directory: {upload_dir}')
 
     def publish_progress(self, message):
         """Publish progress message to topic"""
@@ -167,6 +182,9 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
+        # Stop the HTTP upload server
+        if hasattr(firmware_flash_node, 'upload_server'):
+            firmware_flash_node.upload_server.stop()
         firmware_flash_node.destroy_node()
         rclpy.shutdown()
 
