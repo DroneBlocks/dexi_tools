@@ -8,6 +8,7 @@ def generate_launch_description():
             package='dexi_tools',
             executable='firmware_flash_node',
             name='firmware_flash_node',
+            namespace='dexi',
             output='screen',
             parameters=[],
         ),
